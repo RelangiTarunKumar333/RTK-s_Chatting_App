@@ -1,0 +1,9 @@
+chat-bot/
+├── app.py
+├── templates/
+│   └── index.html
+├── .env
+├── .gitignore
+├── LICENSE
+├── README.md
+├── requirements.txt

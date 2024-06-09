@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with our BotFriend</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #chat-box {
+            width: 90%;
+            height: 90%;
+            background-color: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #messages {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #f9f9f9;
+        }
+        .message {
+            padding: 20px;
+            border-radius: 15px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .message.user {
+            align-self: flex-start;
+            background-color: #3498db;
+            color: #fff;
+            border-top-left-radius: 0;
+        }
+        .message.bot {
+            align-self: flex-end;
+            background-color: #e74c3c;
+            color: #fff;
+            border-top-right-radius: 0;
+        }
+        #user-input {
+            display: flex;
+            padding: 30px;
+            background-color: #34495e;
+        }
+        #user-input input {
+            flex: 1;
+            padding: 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            margin-right: 10px;
+            outline: none;
+        }
+        #user-input button {
+            padding: 20px 30px;
+            font-size: 18px;
+            background-color: #1abc9c;
+            color: #ecf0f1;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        #user-input button:hover {
+            background-color: #16a085;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-box">
+        <div id="messages"></div>
+        <div id="user-input">
+            <input type="text" id="message-input" placeholder="Type a message..." />
+            <button onclick="sendMessage()">Send</button>
+            <button onclick="startVoiceRecognition()">🎤</button>
+        </div>
+    </div>
+    <script>
+        document.getElementById('message-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function addMessage(sender, message) {
+            const messages = document.getElementById('messages');
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', sender === 'You' ? 'user' : 'bot');
+            messageElement.textContent = message;
+            messages.appendChild(messageElement);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('message-input');
+            const userMessage = messageInput.value;
+            if (userMessage.trim() === '') return;
+
+            addMessage('You', userMessage);
+            messageInput.value = '';
+
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: userMessage }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    addMessage('Bot', data.message);
+                    speakOutLoud(data.message);
+                    if (data.image_url) {
+                        const img = document.createElement('img');
+                        img.src = data.image_url;
+                        img.alt = 'Image';
+                        img.style.maxWidth = '100%';
+                        messages.appendChild(img);
+                    }
+                    if (data.video_url) {
+                        const a = document.createElement('a');
+                        a.href = data.video_url;
+                        a.textContent = 'Watch Video';
+                        a.target = '_blank';
+                        a.style.display = 'block';
+                        messages.appendChild(a);
+                    }
+                } else {
+                    addMessage('Bot', 'Error: Unable to get a response.');
+                }
+            })
+            .catch(error => {
+                addMessage('Bot', 'Error: Unable to get a response.');
+                console.error('Error:', error);
+            });
+        }
+
+        function startVoiceRecognition() {
+            if (!('webkitSpeechRecognition' in window)) {
+                alert('Sorry, your browser does not support speech recognition.');
+                return;
+            }
+
+            const recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.onresult = function(event) {
+                const userMessage = event.results[0][0].transcript;
+                document.getElementById('message-input').value = userMessage;
+                sendMessage();
+            };
+
+            recognition.onerror = function(event) {
+                console.error('Error occurred in recognition: ', event.error);
+            };
+
+            recognition.start();
+        }
+
+        function speakOutLoud(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            speechSynthesis.speak(utterance);
+        }
+
+        // Initial greeting
+        addMessage('Bot', "Hello! Let's chat.\nYou can type 'bye', 'exit', or 'end' to stop the conversation.");
+    </script>
+</body>
+</html>
